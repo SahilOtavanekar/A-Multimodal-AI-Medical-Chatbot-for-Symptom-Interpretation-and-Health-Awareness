@@ -7,6 +7,7 @@ from ai.multimodal import process_multimodal_input
 from ai.prompts import MEDICAL_SYSTEM_PROMPT
 from ai.safety import check_for_emergency, get_emergency_override_message
 from ai.severity import classify_risk_severity
+from ai.mcp import fetch_authoritative_guidelines, inject_mcp_context
 import uuid
 import logging
 
@@ -46,9 +47,13 @@ async def process_chat(request: ChatRequest, user=Depends(verify_session)):
             final_response = get_emergency_override_message()
             logger.warning(f"Emergency Escalation Triggered for User: {user.id}")
         else:
-             # 2. Multimodal Context Fusion (Gemini)
-             prompt = f"{MEDICAL_SYSTEM_PROMPT}\n\nUSER INPUT: {request.message}"
-             final_response = await process_multimodal_input(text_prompt=prompt, image_url=request.image_url)
+             # Fetch MCP grounding contexts
+             mcp_facts = await fetch_authoritative_guidelines(request.message)
+             
+             # Multimodal Context Fusion (Gemini)
+             base_prompt = f"{MEDICAL_SYSTEM_PROMPT}\n\nUSER INPUT: {request.message}"
+             prompt_with_mcp = inject_mcp_context(base_prompt, mcp_facts)
+             final_response = await process_multimodal_input(text_prompt=prompt_with_mcp, image_url=request.image_url)
 
         # 3. Persist User Prompt to DB
         supabase.table("chat_messages").insert({
