@@ -1,6 +1,13 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Request, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 import os
+from models import StandardResponse
+import logging
+
+# Configure basic logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 app = FastAPI(
     title="Multimodal Medical AI Chatbot API",
@@ -23,6 +30,26 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-@app.get("/")
+@app.exception_handler(HTTPException)
+async def http_exception_handler(request: Request, exc: HTTPException):
+    logger.error(f"HTTP Error: {exc.detail} on {request.url}")
+    return JSONResponse(
+        status_code=exc.status_code,
+        content=StandardResponse(success=False, error=str(exc.detail)).model_dump()
+    )
+
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    logger.error(f"Unhandled Exception: {str(exc)} on {request.url}", exc_info=True)
+    return JSONResponse(
+        status_code=500,
+        content=StandardResponse(
+            success=False, 
+            error="Internal Server Error", 
+            message="An unexpected error occurred. Please try again later."
+        ).model_dump()
+    )
+
+@app.get("/", response_model=StandardResponse)
 def read_root():
-    return {"message": "Welcome to the Medical AI Chatbot API"}
+    return StandardResponse(success=True, message="Welcome to the Medical AI Chatbot API")
