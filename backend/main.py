@@ -8,9 +8,13 @@ from routers import auth, chat, upload, profile
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from limiter import limiter
+from audit import AuditLoggingMiddleware
 
 # Configure basic logging
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
 logger = logging.getLogger(__name__)
 
 app = FastAPI(
@@ -21,6 +25,9 @@ app = FastAPI(
 
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+# Register Audit Middleware
+app.add_middleware(AuditLoggingMiddleware)
 
 # Configure CORS policies between frontend and backend
 # We read FRONTEND_URL from environment variables, defaulting to localhost for dev
