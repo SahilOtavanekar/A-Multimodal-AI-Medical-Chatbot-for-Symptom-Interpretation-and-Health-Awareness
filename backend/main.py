@@ -5,6 +5,9 @@ import os
 from models import StandardResponse
 import logging
 from routers import auth, chat, upload, profile
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+from limiter import limiter
 
 # Configure basic logging
 logging.basicConfig(level=logging.INFO)
@@ -15,6 +18,9 @@ app = FastAPI(
     description="Backend API for Symptom Interpretation and Health Awareness",
     version="1.0.0"
 )
+
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 # Configure CORS policies between frontend and backend
 # We read FRONTEND_URL from environment variables, defaulting to localhost for dev

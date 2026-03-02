@@ -1,6 +1,7 @@
-from fastapi import APIRouter, Depends, UploadFile, File, HTTPException
+from fastapi import APIRouter, Depends, UploadFile, File, HTTPException, Request
 from models import StandardResponse
 from dependencies import verify_session, supabase
+from limiter import limiter
 import uuid
 import logging
 
@@ -11,7 +12,8 @@ ALLOWED_EXTENSIONS = {"png", "jpg", "jpeg", "webp"}
 MAX_FILE_SIZE = 5 * 1024 * 1024  # 5 MB
 
 @router.post("/", response_model=StandardResponse)
-async def upload_medical_image(file: UploadFile = File(...), user=Depends(verify_session)):
+@limiter.limit("2/minute")
+async def upload_medical_image(request_data: Request, file: UploadFile = File(...), user=Depends(verify_session)):
     """
     Secure endpoint for uploading medical images or symptom pictures to Supabase Storage.
     Validates file extension and size.

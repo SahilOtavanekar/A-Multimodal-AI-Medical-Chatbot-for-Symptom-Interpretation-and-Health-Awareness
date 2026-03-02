@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, UploadFile, File, Form, HTTPException
+from fastapi import APIRouter, Depends, UploadFile, File, Form, HTTPException, Request
 from pydantic import BaseModel
 from typing import Optional, List
 from models import StandardResponse
@@ -8,6 +8,7 @@ from ai.prompts import MEDICAL_SYSTEM_PROMPT
 from ai.safety import check_for_emergency, get_emergency_override_message
 from ai.severity import classify_risk_severity
 from ai.mcp import fetch_authoritative_guidelines, inject_mcp_context
+from limiter import limiter
 import uuid
 import logging
 
@@ -20,7 +21,8 @@ class ChatRequest(BaseModel):
     image_url: Optional[str] = None
 
 @router.post("/", response_model=StandardResponse)
-async def process_chat(request: ChatRequest, user=Depends(verify_session)):
+@limiter.limit("5/minute")
+async def process_chat(request_data: Request, request: ChatRequest, user=Depends(verify_session)):
     """
     Main endpoint for parsing user symptoms, processing optionally attached images,
     identifying emergencies, querying google-genai, and persisting history.
@@ -89,7 +91,8 @@ async def process_chat(request: ChatRequest, user=Depends(verify_session)):
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/history", response_model=StandardResponse)
-async def get_chat_history(session_id: str, user=Depends(verify_session)):
+@limiter.limit("15/minute")
+async def get_chat_history(request_data: Request, session_id: str, user=Depends(verify_session)):
     """
     Fetches the chat history from Supabase for a specific session.
     """
