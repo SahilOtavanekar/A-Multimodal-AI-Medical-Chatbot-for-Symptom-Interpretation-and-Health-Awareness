@@ -6,8 +6,10 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-# Initialize Supabase Admin Client
-supabase: Client = create_client(settings.supabase_url, settings.supabase_key)
+# Initialize Supabase Admin Client gracefully to prevent crash during Render build phase
+supabase_url = settings.supabase_url or "https://mhuhgozelxwgmtvugxsq.supabase.co"
+supabase_key = settings.supabase_key or "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1odWhnb3plbHh3Z210dnVneHNxIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3MjQ0ODEyMSwiZXhwIjoyMDg4MDI0MTIxfQ.5xRq-lJkj-LYYWrp17hbw3mi6cS-AmyjiBQz6EI83Bc"
+supabase: Client = create_client(supabase_url, supabase_key)
 
 security = HTTPBearer()
 
