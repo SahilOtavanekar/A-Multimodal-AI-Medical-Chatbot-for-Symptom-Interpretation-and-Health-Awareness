@@ -13,7 +13,7 @@ MAX_FILE_SIZE = 5 * 1024 * 1024  # 5 MB
 
 @router.post("/", response_model=StandardResponse)
 @limiter.limit("2/minute")
-async def upload_medical_image(request_data: Request, file: UploadFile = File(...), user=Depends(verify_session)):
+async def upload_medical_image(request: Request, file: UploadFile = File(...), user=Depends(verify_session)):
     """
     Secure endpoint for uploading medical images or symptom pictures to Supabase Storage.
     Validates file extension and size.

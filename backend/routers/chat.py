@@ -22,18 +22,18 @@ class ChatRequest(BaseModel):
 
 @router.post("/", response_model=StandardResponse)
 @limiter.limit("5/minute")
-async def process_chat(request_data: Request, request: ChatRequest, user=Depends(verify_session)):
+async def process_chat(request: Request, payload: ChatRequest, user=Depends(verify_session)):
     """
     Main endpoint for parsing user symptoms, processing optionally attached images,
     identifying emergencies, querying google-genai, and persisting history.
     """
     try:
-        session_id = request.session_id
+        session_id = payload.session_id
         if not session_id:
             # Create a brand new session in Supabase on first message
             session_resp = supabase.table("chat_sessions").insert({
                 "user_id": user.id,
-                "title": f"Session {request.message[:20]}..."
+                "title": f"Session {payload.message[:20]}..."
             }).execute()
             if session_resp.data:
                 session_id = session_resp.data[0]['id']
@@ -41,8 +41,8 @@ async def process_chat(request_data: Request, request: ChatRequest, user=Depends
                  raise RuntimeError("Failed to spawn new session.")
 
         # 1. Enforce Safety Guardrails Pre-Generation
-        is_emergency = check_for_emergency(request.message)
-        severity_label = classify_risk_severity(request.message, is_emergency)
+        is_emergency = check_for_emergency(payload.message)
+        severity_label = classify_risk_severity(payload.message, is_emergency)
         
         if is_emergency:
             # Hard override if critical keywords are matched
@@ -50,20 +50,20 @@ async def process_chat(request_data: Request, request: ChatRequest, user=Depends
             logger.warning(f"Emergency Escalation Triggered for User: {user.id}")
         else:
              # Fetch MCP grounding contexts
-             mcp_facts = await fetch_authoritative_guidelines(request.message)
+             mcp_facts = await fetch_authoritative_guidelines(payload.message)
              
              # Multimodal Context Fusion (Gemini)
-             base_prompt = f"{MEDICAL_SYSTEM_PROMPT}\n\nUSER INPUT: {request.message}"
+             base_prompt = f"{MEDICAL_SYSTEM_PROMPT}\n\nUSER INPUT: {payload.message}"
              prompt_with_mcp = inject_mcp_context(base_prompt, mcp_facts)
-             final_response = await process_multimodal_input(text_prompt=prompt_with_mcp, image_url=request.image_url)
+             final_response = await process_multimodal_input(text_prompt=prompt_with_mcp, image_url=payload.image_url)
 
         # 3. Persist User Prompt to DB
         supabase.table("chat_messages").insert({
             "session_id": session_id,
             "user_id": user.id,
             "role": "user",
-            "content": request.message,
-            "image_url": request.image_url,
+            "content": payload.message,
+            "image_url": payload.image_url,
             "severity": "N/A" # Prompts don't get severity tags, AI responses do
         }).execute()
         
@@ -92,7 +92,7 @@ async def process_chat(request_data: Request, request: ChatRequest, user=Depends
 
 @router.get("/history", response_model=StandardResponse)
 @limiter.limit("15/minute")
-async def get_chat_history(request_data: Request, session_id: str, user=Depends(verify_session)):
+async def get_chat_history(request: Request, session_id: str, user=Depends(verify_session)):
     """
     Fetches the chat history from Supabase for a specific session.
     """
