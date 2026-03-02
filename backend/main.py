@@ -4,11 +4,7 @@ from fastapi.responses import JSONResponse
 import os
 from models import StandardResponse
 import logging
-from routers import auth, chat, upload
-from fastapi.responses import JSONResponse
-import os
-from models import StandardResponse
-import logging
+from routers import auth, chat, upload, profile
 
 # Configure basic logging
 logging.basicConfig(level=logging.INFO)
@@ -39,6 +35,7 @@ app.add_middleware(
 app.include_router(auth.router)
 app.include_router(chat.router)
 app.include_router(upload.router)
+app.include_router(profile.router)
 
 @app.exception_handler(HTTPException)
 async def http_exception_handler(request: Request, exc: HTTPException):
