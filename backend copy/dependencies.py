@@ -5,13 +5,13 @@ from config import settings
 import logging
 import socket
 
-# --- IPv6 / NAT64 Compatibility Patch ---
-# Force Python's DNS resolver to prioritize IPv6 addresses (AF_INET6) 
-# to bypass local ISP IPv4 blackholes that cause connection timeouts.
+# --- IPv4 Compatibility Patch for Vi Network ---
+# Force Python's DNS resolver to prioritize IPv4 addresses (AF_INET) 
+# because the current ISP (Vi) causes IPv6 connection timeouts (70s delay).
 _orig_getaddrinfo = socket.getaddrinfo
-def _ipv6_first_getaddrinfo(*args, **kwargs):
+def _ipv4_first_getaddrinfo(*args, **kwargs):
     res = _orig_getaddrinfo(*args, **kwargs)
-    return sorted(res, key=lambda x: x[0] == socket.AF_INET6, reverse=True)
+    return sorted(res, key=lambda x: x[0] == socket.AF_INET, reverse=True)
 socket.getaddrinfo = _ipv6_first_getaddrinfo
 # ----------------------------------------
 
