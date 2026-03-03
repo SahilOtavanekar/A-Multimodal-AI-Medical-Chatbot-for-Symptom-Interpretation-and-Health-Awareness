@@ -21,7 +21,7 @@ async def download_image_as_base64(image_url: str) -> str:
         response.raise_for_status()
         return base64.b64encode(response.content).decode("utf-8")
 
-async def process_multimodal_input(text_prompt: str, image_url: str = None) -> str:
+async def process_multimodal_input(text_prompt: str, image_url: str = None, chat_history: list = None) -> str:
     """
     Core Context Fusion module using Gemini.
     Takes user symptoms (text) and optional medical images, and asks Gemini.
@@ -31,7 +31,24 @@ async def process_multimodal_input(text_prompt: str, image_url: str = None) -> s
 
     contents = []
 
-    # If image URL exists, fetch it and append as a Part to the contents list
+    # 1. Format previous conversation history as a string prefix
+    history_context = ""
+    if chat_history:
+        history_context += "--- PREVIOUS CONVERSATION CONTEXT ---\n"
+        for msg in chat_history:
+            role = "USER" if msg['role'] == "user" else "ASSISTANT"
+            content_text = str(msg.get('content', ''))
+            if content_text.strip():
+                history_context += f"{role}: {content_text}\n\n"
+        history_context += "--- END CONTEXT, RESUMING CURRENT TURN ---\n\n"
+
+    # Append the formatted history to the current text prompt
+    final_text_prompt = history_context + text_prompt
+
+    # 2. Build the current turn's content
+    current_parts = []
+    
+    # If image URL exists, fetch it and append as a Part to the current turn
     if image_url:
         try:
             b64_image = await download_image_as_base64(image_url)
@@ -42,7 +59,7 @@ async def process_multimodal_input(text_prompt: str, image_url: str = None) -> s
             elif image_url.lower().endswith(".webp"):
                 mime_type = "image/webp"
 
-            contents.append(
+            current_parts.append(
                 types.Part.from_bytes(
                     data=base64.b64decode(b64_image),
                     mime_type=mime_type
@@ -52,9 +69,15 @@ async def process_multimodal_input(text_prompt: str, image_url: str = None) -> s
             logger.error(f"Failed to fetch or process image for AI: {e}")
             raise RuntimeError("Failed to process the uploaded image for AI reasoning.")
 
-    # Always append the user's text symptom description
+    # Always append the user's combined text prompt
+    current_parts.append(types.Part.from_text(text=final_text_prompt))
+    
+    # Add the current turn to the overall contents payload as a user message
     contents.append(
-        types.Part.from_text(text=text_prompt)
+        types.Content(
+            role="user",
+            parts=current_parts
+        )
     )
 
     try:
@@ -68,5 +91,26 @@ async def process_multimodal_input(text_prompt: str, image_url: str = None) -> s
         )
         return response.text
     except Exception as e:
-        logger.error(f"Gemini API Error: {e}")
-        raise RuntimeError("AI processing service is currently unavailable.")
+        error_msg = str(e)
+        logger.error(f"Gemini API Error: {error_msg}")
+        raise RuntimeError(f"AI processing service error: {error_msg}")
+
+async def generate_chat_title(first_message: str) -> str:
+    """Generates a concise 3-4 word title for a new chat session based on the first message."""
+    if not client:
+        return f"Session: {first_message[:15]}..."
+        
+    try:
+        prompt = f"Summarize the following medical query into a very concise, descriptive title (maximum 4 words, no quotes, no period): {first_message}"
+        response = client.models.generate_content(
+            model='gemini-2.5-flash',
+            contents=prompt,
+            config=types.GenerateContentConfig(
+                temperature=0.3,
+            )
+        )
+        title = response.text.strip().replace('"', '').replace('.', '')
+        return title if len(title) > 0 else f"Session: {first_message[:15]}..."
+    except Exception as e:
+        logger.error(f"Failed to generate title: {e}")
+        return f"Session: {first_message[:15]}..."

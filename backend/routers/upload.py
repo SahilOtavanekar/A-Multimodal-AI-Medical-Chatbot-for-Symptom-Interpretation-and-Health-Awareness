@@ -40,12 +40,28 @@ async def upload_medical_image(request: Request, file: UploadFile = File(...), u
         )
         
         # 5. Get Signed/Public URL for the frontend / AI to use later
-        url_response = supabase.storage.from_("medical_images").get_public_url(file_path)
+        try:
+            # Different Supabase python client versions return different structures. 
+            # We need to safely extract the URL string.
+            url_data = supabase.storage.from_("medical_images").get_public_url(file_path)
+            
+            if isinstance(url_data, str):
+                public_url = url_data
+            else:
+                # Handle newer SDK versions that returned an object or dict
+                public_url = url_data.get("publicUrl") if isinstance(url_data, dict) else url_data.publicUrl
+        except Exception as url_err:
+            import os
+            logger.error(f"Failed to generate public URL: {url_err}")
+            # Fallback to manual construction if the bucket is public
+            bucket_url = os.getenv("SUPABASE_URL", "https://mhuhgozelxwgmtvugxsq.supabase.co")
+            public_url = f"{bucket_url}/storage/v1/object/public/medical_images/{file_path}"
+
 
         return StandardResponse(
             success=True, 
             message="Image uploaded securely.",
-            data={"url": url_response}
+            data={"url": public_url}
         )
 
     except HTTPException as he:
