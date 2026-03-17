@@ -4,9 +4,9 @@ Health AI is a sophisticated AI-powered health awareness and symptom interpretat
 
 ---
 
-## 🚀 Key Features
+##  Key Features
 
-### 🧠 Multimodal AI Intelligence
+###  Multimodal AI Intelligence
 - **Vision Integration:** Upload medical images (symptoms, skin conditions, reports) for AI-powered visual analysis.
 - **Contextual Memory:** The chatbot retains history of previous turns within a session, allowing for follow-up questions like *"What about that second symptom?"* or *"How does that affect my diet?"*.
 - **Emergency Detection:** Built-in safety logic instantly identifies critical medical emergencies and provides immediate life-saving directives.
@@ -92,4 +92,4 @@ npm run dev
 
 ---
 
-*Built with ❤️ for health awareness and modern AI education.*
+
