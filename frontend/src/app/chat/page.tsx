@@ -43,8 +43,10 @@ export default function ChatPage() {
             const { data: { session } } = await supabase.auth.getSession()
             if (!session) return
 
-            const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
-            const res = await fetch(`${apiUrl}/chat/sessions`, {
+            const isProd = typeof window !== 'undefined' && window.location.hostname !== 'localhost'
+            const apiPrefix = isProd ? '/api' : ''
+            const apiUrl = process.env.NEXT_PUBLIC_API_URL || (isProd ? '' : 'http://localhost:8000')
+            const res = await fetch(`${apiUrl}${apiPrefix}/chat/sessions`, {
                 headers: { 'Authorization': `Bearer ${session.access_token}` }
             })
             const data = await res.json()
@@ -105,8 +107,10 @@ export default function ChatPage() {
 
         try {
             const { data: { session } } = await supabase.auth.getSession()
-            const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
-            const res = await fetch(`${apiUrl}/chat/`, {
+            const isProd = typeof window !== 'undefined' && window.location.hostname !== 'localhost'
+            const apiPrefix = isProd ? '/api' : ''
+            const apiUrl = process.env.NEXT_PUBLIC_API_URL || (isProd ? '' : 'http://localhost:8000')
+            const res = await fetch(`${apiUrl}${apiPrefix}/chat/`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',

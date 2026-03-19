@@ -49,8 +49,11 @@ export default function ProfilePage() {
                 return
             }
 
-            const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
-            const res = await fetch(`${apiUrl}/chat/all`, {
+            const isProd = typeof window !== 'undefined' && window.location.hostname !== 'localhost'
+            const apiPrefix = isProd ? '/api' : ''
+            const apiUrl = process.env.NEXT_PUBLIC_API_URL || (isProd ? '' : 'http://localhost:8000')
+            
+            const res = await fetch(`${apiUrl}${apiPrefix}/chat/all`, {
                 method: 'DELETE',
                 headers: {
                     'Authorization': `Bearer ${session.access_token}`
