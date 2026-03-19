@@ -82,8 +82,11 @@ function ChatInterface() {
             const { data: { session } } = await supabase.auth.getSession()
             if (!session) return
 
-            const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
-            const res = await fetch(`${apiUrl}/chat/history?session_id=${sid}`, {
+            const isProd = typeof window !== 'undefined' && window.location.hostname !== 'localhost'
+            const apiPrefix = isProd ? '/api' : ''
+            const apiUrl = process.env.NEXT_PUBLIC_API_URL || (isProd ? '' : 'http://localhost:8000')
+
+            const res = await fetch(`${apiUrl}${apiPrefix}/chat/history?session_id=${sid}`, {
                 headers: { 'Authorization': `Bearer ${session.access_token}` }
             })
             const data = await res.json()
@@ -164,11 +167,14 @@ function ChatInterface() {
         setIsUploading(true)
         try {
             const { data: { session } } = await supabase.auth.getSession()
-            const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
+            const isProd = typeof window !== 'undefined' && window.location.hostname !== 'localhost'
+            const apiPrefix = isProd ? '/api' : ''
+            const apiUrl = process.env.NEXT_PUBLIC_API_URL || (isProd ? '' : 'http://localhost:8000')
+
             const formData = new FormData()
             formData.append('file', file)
 
-            const res = await fetch(`${apiUrl}/upload/`, {
+            const res = await fetch(`${apiUrl}${apiPrefix}/upload/`, {
                 method: 'POST',
                 headers: {
                     'Authorization': `Bearer ${session?.access_token}`
