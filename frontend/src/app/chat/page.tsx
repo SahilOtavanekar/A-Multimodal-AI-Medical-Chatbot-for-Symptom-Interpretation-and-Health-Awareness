@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef, useEffect, useCallback } from 'react'
+import { useState, useRef, useEffect, useCallback, Suspense } from 'react'
 import { motion } from 'framer-motion'
 import { Send, ImagePlus, User, Bot, Loader2, LogOut, Settings, MessageSquare, PlusCircle, Volume2, Pause, Play, Menu, X, Mic, CheckCircle2 } from 'lucide-react'
 import Link from 'next/link'
@@ -8,7 +8,7 @@ import { useSearchParams } from 'next/navigation'
 import { createClient } from '@/utils/supabase/client'
 import ReactMarkdown from 'react-markdown'
 
-export default function ChatPage() {
+function ChatInterface() {
     const supabase = createClient()
     const [messages, setMessages] = useState<any[]>([
         { id: 1, role: 'assistant', text: "Hello. I am a health awareness AI. How can I help you today? Please remember, I cannot provide a medical diagnosis." }
@@ -497,5 +497,17 @@ export default function ChatPage() {
                 </div>
             </main>
         </div>
+    )
+}
+
+export default function ChatPage() {
+    return (
+        <Suspense fallback={
+            <div className="flex items-center justify-center h-screen w-full bg-slate-50">
+                <Loader2 className="w-8 h-8 text-blue-600 animate-spin" />
+            </div>
+        }>
+            <ChatInterface />
+        </Suspense>
     )
 }
