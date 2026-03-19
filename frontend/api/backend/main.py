@@ -44,9 +44,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Include the modular routers
-# On Vercel, requests are routed via /api, so we add it as a prefix
-prefix = "/api" if os.getenv("VERCEL") else ""
+# Use /api as the prefix for all routes to match frontend expectations
+prefix = "/api"
 
 app.include_router(auth.router, prefix=prefix)
 app.include_router(chat.router, prefix=prefix)
