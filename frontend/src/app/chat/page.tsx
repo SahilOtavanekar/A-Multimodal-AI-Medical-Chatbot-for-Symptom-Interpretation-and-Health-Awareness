@@ -8,6 +8,33 @@ import { useSearchParams } from 'next/navigation'
 import { createClient } from '@/utils/supabase/client'
 import ReactMarkdown from 'react-markdown'
 
+function DeletionNotifier() {
+    const searchParams = useSearchParams()
+    const [deletionSuccess, setDeletionSuccess] = useState(false)
+
+    useEffect(() => {
+        if (searchParams.get('deleted') === 'true') {
+            setDeletionSuccess(true)
+            window.history.replaceState({}, '', '/chat')
+            const timer = setTimeout(() => setDeletionSuccess(false), 5000)
+            return () => clearTimeout(timer)
+        }
+    }, [searchParams])
+
+    if (!deletionSuccess) return null
+
+    return (
+        <motion.div 
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="absolute top-20 left-1/2 -translate-x-1/2 z-50 bg-green-50 border border-green-200 text-green-800 px-6 py-3 rounded-2xl shadow-lg flex items-center gap-3 font-semibold"
+        >
+            <CheckCircle2 className="w-5 h-5 text-green-600" />
+            All chat history successfully deleted!
+        </motion.div>
+    )
+}
+
 function ChatInterface() {
     const supabase = createClient()
     const [messages, setMessages] = useState<any[]>([
@@ -25,18 +52,6 @@ function ChatInterface() {
     const [isListening, setIsListening] = useState(false)
     const fileInputRef = useRef<HTMLInputElement>(null)
     const recognitionRef = useRef<any>(null)
-    const searchParams = useSearchParams()
-    const [deletionSuccess, setDeletionSuccess] = useState(false)
-
-    useEffect(() => {
-        if (searchParams.get('deleted') === 'true') {
-            setDeletionSuccess(true)
-            // Remove the query param gracefully after showing the message
-            window.history.replaceState({}, '', '/chat')
-            const timer = setTimeout(() => setDeletionSuccess(false), 5000)
-            return () => clearTimeout(timer)
-        }
-    }, [searchParams])
 
     const fetchSessions = useCallback(async () => {
         try {
@@ -370,16 +385,9 @@ function ChatInterface() {
 
             {/* Main Chat Area */}
             <main className="flex-1 flex flex-col min-w-0 bg-white md:rounded-l-[2.5rem] shadow-2xl relative overflow-hidden">
-                {deletionSuccess && (
-                    <motion.div 
-                        initial={{ opacity: 0, y: -20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        className="absolute top-20 left-1/2 -translate-x-1/2 z-50 bg-green-50 border border-green-200 text-green-800 px-6 py-3 rounded-2xl shadow-lg flex items-center gap-3 font-semibold"
-                    >
-                        <CheckCircle2 className="w-5 h-5 text-green-600" />
-                        All chat history successfully deleted!
-                    </motion.div>
-                )}
+                <Suspense fallback={null}>
+                    <DeletionNotifier />
+                </Suspense>
 
                 {/* Mobile Header */}
                 <header className="sm:hidden bg-white border-b border-slate-200 p-4 flex items-center justify-between shrink-0 sticky top-0 z-10">

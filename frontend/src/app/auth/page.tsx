@@ -7,12 +7,27 @@ import { login, signup, resetPassword } from './actions'
 import { useSearchParams } from 'next/navigation'
 import { Suspense } from 'react'
 
-function AuthForm() {
-    const [mode, setMode] = useState<'signin' | 'reset'>('signin')
-    const [showPassword, setShowPassword] = useState(false)
+function AuthError() {
     const searchParams = useSearchParams()
     const errorMsg = searchParams.get('message')
     const isError = searchParams.get('error') !== 'false'
+
+    if (!errorMsg) return null
+
+    return (
+        <div className={`mb-6 p-4 rounded-xl text-sm border flex items-center gap-2 ${isError
+                ? 'bg-red-50 text-red-700 border-red-100'
+                : 'bg-green-50 text-green-700 border-green-100'
+            }`}>
+            <ShieldAlert className="w-4 h-4 shrink-0" />
+            <p>{errorMsg}</p>
+        </div>
+    )
+}
+
+function AuthForm() {
+    const [mode, setMode] = useState<'signin' | 'reset'>('signin')
+    const [showPassword, setShowPassword] = useState(false)
 
     return (
         <motion.div
@@ -44,15 +59,9 @@ function AuthForm() {
                             : 'Enter your email and we\'ll send you a secure link to reset your account.'}
                     </p>
 
-                    {errorMsg && (
-                        <div className={`mb-6 p-4 rounded-xl text-sm border flex items-center gap-2 ${isError
-                                ? 'bg-red-50 text-red-700 border-red-100'
-                                : 'bg-green-50 text-green-700 border-green-100'
-                            }`}>
-                            <ShieldAlert className="w-4 h-4 shrink-0" />
-                            <p>{errorMsg}</p>
-                        </div>
-                    )}
+                    <Suspense fallback={null}>
+                        <AuthError />
+                    </Suspense>
 
                     <form className="space-y-5">
                         <div>

@@ -7,12 +7,27 @@ import { updatePassword } from '../actions'
 import { useSearchParams } from 'next/navigation'
 import { Suspense } from 'react'
 
-function ResetPasswordForm() {
-    const [showPassword, setShowPassword] = useState(false)
-    const [showConfirmPassword, setShowConfirmPassword] = useState(false)
+function ResetPasswordError() {
     const searchParams = useSearchParams()
     const errorMsg = searchParams.get('message')
     const isError = searchParams.get('error') !== 'false'
+
+    if (!errorMsg) return null
+
+    return (
+        <div className={`mb-6 p-4 rounded-xl text-sm border flex items-center gap-2 ${isError
+                ? 'bg-red-50 text-red-700 border-red-100'
+                : 'bg-green-50 text-green-700 border-green-100'
+            }`}>
+            <ShieldAlert className="w-4 h-4 shrink-0" />
+            <p>{errorMsg}</p>
+        </div>
+    )
+}
+
+function ResetPasswordForm() {
+    const [showPassword, setShowPassword] = useState(false)
+    const [showConfirmPassword, setShowConfirmPassword] = useState(false)
 
     return (
         <motion.div
@@ -29,15 +44,9 @@ function ResetPasswordForm() {
             <h2 className="text-3xl font-bold text-center text-slate-900 mb-2">Update Password</h2>
             <p className="text-center text-slate-500 mb-8 px-4">Secure your account with a new password.</p>
 
-            {errorMsg && (
-                <div className={`mb-6 p-4 rounded-xl text-sm border flex items-center gap-2 ${isError
-                        ? 'bg-red-50 text-red-700 border-red-100'
-                        : 'bg-green-50 text-green-700 border-green-100'
-                    }`}>
-                    <ShieldAlert className="w-4 h-4 shrink-0" />
-                    <p>{errorMsg}</p>
-                </div>
-            )}
+            <Suspense fallback={null}>
+                <ResetPasswordError />
+            </Suspense>
 
             <form className="space-y-5">
                 <div>
