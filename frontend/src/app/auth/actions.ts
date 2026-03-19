@@ -53,3 +53,40 @@ export async function signup(formData: FormData) {
     revalidatePath('/', 'layout')
     redirect('/chat')
 }
+
+export async function resetPassword(formData: FormData) {
+    const supabase = await createClient()
+    const email = formData.get('email') as string
+    
+    const headerStore = await headers()
+    const origin = headerStore.get('origin') || 'http://localhost:3000'
+
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${origin}/auth/callback?next=/auth/reset-password`,
+    })
+
+    if (error) {
+        redirect('/auth?error=true&message=' + encodeURIComponent(error.message))
+    }
+
+    redirect('/auth?error=false&message=' + encodeURIComponent('Check your email for the password reset link.'))
+}
+
+export async function updatePassword(formData: FormData) {
+    const supabase = await createClient()
+    const password = formData.get('password') as string
+    const confirmPassword = formData.get('confirmPassword') as string
+
+    if (password !== confirmPassword) {
+        redirect('/auth/reset-password?error=true&message=' + encodeURIComponent('Passwords do not match.'))
+    }
+
+    const { error } = await supabase.auth.updateUser({ password })
+
+    if (error) {
+        redirect('/auth/reset-password?error=true&message=' + encodeURIComponent(error.message))
+    }
+
+    revalidatePath('/', 'layout')
+    redirect('/chat?message=' + encodeURIComponent('Password successfully updated.'))
+}

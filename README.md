@@ -4,7 +4,7 @@ Health AI is a sophisticated AI-powered health awareness and symptom interpretat
 
 ---
 
-##  Key Features
+## Key Features
 
 ###  Multimodal AI Intelligence
 - **Vision Integration:** Upload medical images (symptoms, skin conditions, reports) for AI-powered visual analysis.

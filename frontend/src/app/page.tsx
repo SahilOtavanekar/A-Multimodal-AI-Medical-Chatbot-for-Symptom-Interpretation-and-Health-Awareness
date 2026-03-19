@@ -58,17 +58,21 @@ export default function LandingPage() {
           >
             Get Started <ArrowRight className="w-5 h-5" />
           </Link>
-          <Link
-            href="#how-it-works"
-            className="inline-flex items-center justify-center gap-2 px-8 py-4 bg-white text-slate-700 rounded-xl font-semibold shadow-sm border border-slate-200 hover:bg-slate-50 transition-all focus:ring-4 focus:ring-slate-100"
+          <button
+            onClick={(e) => {
+              e.preventDefault();
+              document.getElementById('how-it-works')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }}
+            className="inline-flex items-center justify-center gap-2 px-8 py-4 bg-white text-slate-700 rounded-xl font-semibold shadow-sm border border-slate-200 hover:bg-slate-50 transition-all focus:ring-4 focus:ring-slate-100 cursor-pointer"
           >
             Learn More
-          </Link>
+          </button>
         </motion.div>
 
         {/* Feature Highlights */}
-        <motion.div
-          className="grid sm:grid-cols-3 gap-8 mt-24 text-left"
+        <section id="how-it-works" className="w-full mt-48 pt-12">
+          <motion.div
+            className="grid sm:grid-cols-3 gap-8 text-left"
           initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8, delay: 0.5 }}
@@ -99,8 +103,13 @@ export default function LandingPage() {
             <p className="text-slate-600 leading-relaxed">Your data belongs to you. We strictly enforce deletion policies and guarantee no AI training on user data.</p>
           </div>
         </motion.div>
+      </section>
 
       </main>
+
+      <footer className="py-16 pb-64 text-center text-slate-500 text-sm border-t border-slate-200 mt-24 bg-white">
+        <p>&copy; {new Date().getFullYear()} Health AI. All rights reserved. For educational purposes only.</p>
+      </footer>
     </div>
   )
 }

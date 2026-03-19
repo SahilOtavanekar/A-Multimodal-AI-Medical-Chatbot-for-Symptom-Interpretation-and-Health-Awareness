@@ -2,8 +2,9 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { motion } from 'framer-motion'
-import { Send, ImagePlus, User, Bot, Loader2, LogOut, Settings, MessageSquare, PlusCircle, Volume2, Pause, Play, Menu, X } from 'lucide-react'
+import { Send, ImagePlus, User, Bot, Loader2, LogOut, Settings, MessageSquare, PlusCircle, Volume2, Pause, Play, Menu, X, Mic, CheckCircle2 } from 'lucide-react'
 import Link from 'next/link'
+import { useSearchParams } from 'next/navigation'
 import { createClient } from '@/utils/supabase/client'
 import ReactMarkdown from 'react-markdown'
 
@@ -21,7 +22,21 @@ export default function ChatPage() {
     const [isSidebarOpen, setIsSidebarOpen] = useState(false)
     const [speakingId, setSpeakingId] = useState<number | null>(null)
     const [isPaused, setIsPaused] = useState(false)
+    const [isListening, setIsListening] = useState(false)
     const fileInputRef = useRef<HTMLInputElement>(null)
+    const recognitionRef = useRef<any>(null)
+    const searchParams = useSearchParams()
+    const [deletionSuccess, setDeletionSuccess] = useState(false)
+
+    useEffect(() => {
+        if (searchParams.get('deleted') === 'true') {
+            setDeletionSuccess(true)
+            // Remove the query param gracefully after showing the message
+            window.history.replaceState({}, '', '/chat')
+            const timer = setTimeout(() => setDeletionSuccess(false), 5000)
+            return () => clearTimeout(timer)
+        }
+    }, [searchParams])
 
     const fetchSessions = useCallback(async () => {
         try {
@@ -74,6 +89,11 @@ export default function ChatPage() {
     const handleSend = async (e: React.FormEvent) => {
         e.preventDefault()
         if (!input.trim() && !uploadedImageUrl) return
+
+        if (recognitionRef.current) {
+            recognitionRef.current.stop();
+            setIsListening(false);
+        }
 
         const currentInput = input
         const currentImageUrl = uploadedImageUrl
@@ -149,6 +169,46 @@ export default function ChatPage() {
             setIsUploading(false)
         }
     }
+
+    const toggleSpeechToText = () => {
+        if (isListening) {
+            if (recognitionRef.current) recognitionRef.current.stop();
+            setIsListening(false);
+            return;
+        }
+
+        const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+        if (!SpeechRecognition) {
+            alert("Voice input is not supported in this browser. Please use Chrome or Edge.");
+            return;
+        }
+
+        const recognition = new SpeechRecognition();
+        recognitionRef.current = recognition;
+        recognition.lang = 'en-US';
+        recognition.interimResults = true;
+        recognition.continuous = true;
+
+        const baseInput = input ? input.trim() + " " : "";
+
+        recognition.onstart = () => setIsListening(true);
+        
+        recognition.onresult = (event: any) => {
+            const transcript = Array.from(event.results)
+                .map((result: any) => result[0].transcript)
+                .join('');
+            setInput(baseInput + transcript); 
+        };
+
+        recognition.onerror = (e: any) => {
+            console.error("Speech recognition error", e);
+            if (e.error !== 'no-speech') setIsListening(false);
+        };
+
+        recognition.onend = () => setIsListening(false);
+        
+        recognition.start();
+    };
 
     const chunkText = (text: string, maxLength: number = 150): string[] => {
         // Strip out basic markdown syntax to avoid speech engine breaking on *, #, etc.
@@ -305,7 +365,18 @@ export default function ChatPage() {
             </aside>
 
             {/* Main Chat Area */}
-            <main className="flex-1 flex flex-col bg-slate-50 relative min-w-0">
+            <main className="flex-1 flex flex-col min-w-0 bg-white md:rounded-l-[2.5rem] shadow-2xl relative overflow-hidden">
+                {deletionSuccess && (
+                    <motion.div 
+                        initial={{ opacity: 0, y: -20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className="absolute top-20 left-1/2 -translate-x-1/2 z-50 bg-green-50 border border-green-200 text-green-800 px-6 py-3 rounded-2xl shadow-lg flex items-center gap-3 font-semibold"
+                    >
+                        <CheckCircle2 className="w-5 h-5 text-green-600" />
+                        All chat history successfully deleted!
+                    </motion.div>
+                )}
+
                 {/* Mobile Header */}
                 <header className="sm:hidden bg-white border-b border-slate-200 p-4 flex items-center justify-between shrink-0 sticky top-0 z-10">
                     <div className="flex items-center gap-2">
@@ -390,13 +461,24 @@ export default function ChatPage() {
                             <button type="button" onClick={() => fileInputRef.current?.click()} disabled={isUploading} className={`absolute left-3 p-2 rounded-full transition-colors shrink-0 disabled:opacity-50 ${uploadedImageUrl ? 'text-blue-600 bg-blue-100' : 'text-slate-400 hover:text-blue-600 hover:bg-blue-50'}`}>
                                 {isUploading ? <Loader2 className="w-5 h-5 animate-spin" /> : <ImagePlus className="w-5 h-5" />}
                             </button>
+                            
+                            <button 
+                                type="button" 
+                                onClick={toggleSpeechToText}
+                                disabled={isUploading}
+                                className={`absolute left-12 p-2 rounded-full transition-colors shrink-0 disabled:opacity-50 ${isListening ? 'text-red-500 bg-red-50 animate-pulse' : 'text-slate-400 hover:text-blue-600 hover:bg-blue-50'}`}
+                                title="Use Voice Typing"
+                            >
+                                <Mic className="w-5 h-5" />
+                            </button>
+
                             <input
                                 type="text"
                                 value={input}
                                 onChange={(e) => setInput(e.target.value)}
-                                placeholder={isUploading ? "Uploading image..." : "Describe your symptoms or ask a health question..."}
+                                placeholder={isUploading ? "Uploading image..." : (isListening ? "Listening... (Speak now)" : "Describe your symptoms or ask a health question...")}
                                 disabled={isUploading}
-                                className="w-full pl-14 pr-14 py-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 focus:bg-white text-slate-900 transition-all placeholder:text-slate-400 disabled:opacity-70"
+                                className="w-full pl-24 pr-14 py-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 focus:bg-white text-slate-900 transition-all placeholder:text-slate-400 disabled:opacity-70"
                             />
                             <button
                                 type="submit"

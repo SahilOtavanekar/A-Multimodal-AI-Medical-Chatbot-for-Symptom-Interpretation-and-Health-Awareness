@@ -12,40 +12,60 @@ export default function ProfilePage() {
     const router = useRouter()
     const [userEmail, setUserEmail] = useState<string | null>('Loading...')
     const [isClearing, setIsClearing] = useState(false)
+    const [showConfirm, setShowConfirm] = useState(false)
+    const [authError, setAuthError] = useState<string | null>(null)
 
     useEffect(() => {
         const fetchUser = async () => {
-            const { data: { user } } = await supabase.auth.getUser()
-            setUserEmail(user?.email || 'Unknown')
+            try {
+                const { data: { user }, error } = await supabase.auth.getUser()
+                if (error) {
+                    console.warn("Supabase returned an auth error:", error)
+                }
+                setUserEmail(user?.email || 'Unknown')
+            } catch (err) {
+                console.error("Network or parsing error fetching user:", err)
+                setUserEmail('Unknown (Offline)')
+            }
         }
         fetchUser()
-    }, [])
+    }, [supabase])
 
     const handleClearHistory = async () => {
-        if (!confirm("Are you absolutely sure you want to delete all chat history and uploaded images? This action cannot be undone.")) {
-            return
-        }
-
+        setAuthError(null)
         setIsClearing(true)
+        setShowConfirm(false)
+        
         try {
-            const { data: { session } } = await supabase.auth.getSession()
+            let session = null;
+            try {
+                const sessionReq = await supabase.auth.getSession()
+                session = sessionReq.data.session
+                if (!session) throw new Error("No active session found. Please log in again.");
+            } catch (sessionErr: any) {
+                console.warn("Session retrieval failed:", sessionErr)
+                setAuthError("Auth failed: " + (sessionErr.message || "Please log in again."))
+                setIsClearing(false)
+                return
+            }
+
             const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
             const res = await fetch(`${apiUrl}/chat/all`, {
                 method: 'DELETE',
                 headers: {
-                    'Authorization': `Bearer ${session?.access_token}`
+                    'Authorization': `Bearer ${session.access_token}`
                 }
             })
+            
             const data = await res.json()
             if (res.ok && data.success) {
-                alert("All chat history and data successfully deleted.")
-                router.push('/chat')
+                window.location.href = '/chat?deleted=true'
             } else {
-                alert("Failed to clear chat history: " + (data.error || data.detail || "Unknown error"))
+                setAuthError("Server error: " + (data.error || data.detail || "Deletion failed."))
             }
-        } catch (error) {
+        } catch (error: any) {
             console.error(error)
-            alert("Failed to connect to the server to delete history.")
+            setAuthError("Network error: Failed to connect to deletion service.")
         } finally {
             setIsClearing(false)
         }
@@ -115,14 +135,45 @@ export default function ProfilePage() {
                         You can delete your entire chat history and uploaded images. Once deleted, this information cannot be recovered.
                     </p>
                     <div className="space-y-4">
-                        <button
-                            onClick={handleClearHistory}
-                            disabled={isClearing}
-                            className="w-full sm:w-auto px-6 py-3 bg-red-50 text-red-700 font-semibold rounded-xl border border-red-200 hover:bg-red-100 hover:border-red-300 transition-all flex justify-center items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                            {isClearing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
-                            {isClearing ? "Clearing Data..." : "Clear All Chat History"}
-                        </button>
+                        {authError && (
+                            <div className="p-3 bg-red-50 border border-red-100 rounded-xl text-sm text-red-700 font-medium">
+                                {authError}
+                            </div>
+                        )}
+
+                        {!showConfirm ? (
+                            <button
+                                onClick={() => setShowConfirm(true)}
+                                disabled={isClearing}
+                                className="w-full sm:w-auto px-6 py-3 bg-red-50 text-red-700 font-semibold rounded-xl border border-red-200 hover:bg-red-100 hover:border-red-300 transition-all flex justify-center items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                                <Trash2 className="w-4 h-4" />
+                                Clear All Chat History
+                            </button>
+                        ) : (
+                            <div className="bg-red-50 border border-red-200 rounded-xl p-4 space-y-4">
+                                <p className="text-sm font-bold text-red-800">
+                                    Are you 100% sure? This will permanently delete everything.
+                                </p>
+                                <div className="flex flex-wrap gap-3">
+                                    <button
+                                        onClick={handleClearHistory}
+                                        disabled={isClearing}
+                                        className="px-6 py-2 bg-red-600 text-white font-bold rounded-lg hover:bg-red-700 transition-all flex items-center gap-2 disabled:opacity-50"
+                                    >
+                                        {isClearing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+                                        Yes, Delete Everything
+                                    </button>
+                                    <button
+                                        onClick={() => setShowConfirm(false)}
+                                        disabled={isClearing}
+                                        className="px-6 py-2 bg-white text-slate-700 font-semibold rounded-lg border border-slate-200 hover:bg-slate-50 transition-all"
+                                    >
+                                        Cancel
+                                    </button>
+                                </div>
+                            </div>
+                        )}
                         <p className="text-xs text-red-600 flex items-center justify-center sm:justify-start gap-1">
                             <ShieldAlert className="w-3 h-3" /> This will permanently erase records from our databases.
                         </p>
