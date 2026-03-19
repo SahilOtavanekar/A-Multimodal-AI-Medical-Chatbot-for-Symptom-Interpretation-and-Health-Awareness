@@ -10,8 +10,14 @@ if backend_path not in sys.path:
 
 # Import the FastAPI app from backend/main.py
 try:
-    from main import app
-    handler = app
+    from main import app as fastapi_app
+    # Vercel's Python runtime searches for a variable named 'app' by default
+    app = fastapi_app
 except ImportError as e:
-    print(f"Error importing backend: {e}")
-    raise e
+    print(f"CRITICAL ERROR importing backend: {e}")
+    # We create a dummy app to respond with the error if import fails
+    from fastapi import FastAPI
+    app = FastAPI()
+    @app.get("/api/(.*)")
+    def error():
+        return {"success": False, "error": f"Import failed: {e}"}

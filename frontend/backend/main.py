@@ -45,10 +45,13 @@ app.add_middleware(
 )
 
 # Include the modular routers
-app.include_router(auth.router)
-app.include_router(chat.router)
-app.include_router(upload.router)
-app.include_router(profile.router)
+# On Vercel, requests are routed via /api, so we add it as a prefix
+prefix = "/api" if os.getenv("VERCEL") else ""
+
+app.include_router(auth.router, prefix=prefix)
+app.include_router(chat.router, prefix=prefix)
+app.include_router(upload.router, prefix=prefix)
+app.include_router(profile.router, prefix=prefix)
 
 @app.exception_handler(HTTPException)
 async def http_exception_handler(request: Request, exc: HTTPException):
