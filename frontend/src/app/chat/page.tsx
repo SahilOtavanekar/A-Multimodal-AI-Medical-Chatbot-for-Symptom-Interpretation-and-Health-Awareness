@@ -65,7 +65,9 @@ function ChatInterface() {
 
             const isProd = typeof window !== 'undefined' && window.location.hostname !== 'localhost'
             const apiPrefix = '/api'
-            const apiUrl = process.env.NEXT_PUBLIC_API_URL || (isProd ? '' : 'http://localhost:8000')
+            const renderUrl = 'https://a-multimodal-ai-medical-chatbot-for.onrender.com'
+            const apiUrl = process.env.NEXT_PUBLIC_API_URL || (isProd ? renderUrl : 'http://localhost:8000')
+            
             const res = await fetch(`${apiUrl}${apiPrefix}/chat/sessions`, {
                 headers: { 'Authorization': `Bearer ${session.access_token}` }
             })
@@ -106,7 +108,8 @@ function ChatInterface() {
 
             const isProd = typeof window !== 'undefined' && window.location.hostname !== 'localhost'
             const apiPrefix = '/api'
-            const apiUrl = process.env.NEXT_PUBLIC_API_URL || (isProd ? '' : 'http://localhost:8000')
+            const renderUrl = 'https://a-multimodal-ai-medical-chatbot-for.onrender.com'
+            const apiUrl = process.env.NEXT_PUBLIC_API_URL || (isProd ? renderUrl : 'http://localhost:8000')
 
             const res = await fetch(`${apiUrl}${apiPrefix}/chat/history?session_id=${sid}`, {
                 headers: { 'Authorization': `Bearer ${session.access_token}` }
@@ -163,7 +166,9 @@ function ChatInterface() {
 
             const isProd = typeof window !== 'undefined' && window.location.hostname !== 'localhost'
             const apiPrefix = '/api'
-            const apiUrl = process.env.NEXT_PUBLIC_API_URL || (isProd ? '' : 'http://localhost:8000')
+            const renderUrl = 'https://a-multimodal-ai-medical-chatbot-for.onrender.com'
+            const apiUrl = process.env.NEXT_PUBLIC_API_URL || (isProd ? renderUrl : 'http://localhost:8000')
+            
             const res = await fetch(`${apiUrl}${apiPrefix}/chat/`, {
                 method: 'POST',
                 headers: {
