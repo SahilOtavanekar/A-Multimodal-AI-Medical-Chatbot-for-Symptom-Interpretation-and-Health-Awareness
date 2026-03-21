@@ -43,6 +43,7 @@ function ChatInterface() {
     ])
     const [input, setInput] = useState('')
     const [isTyping, setIsTyping] = useState(false)
+    const [user, setUser] = useState<any>(null)
     const sessionId = searchParams.get('id')
     const [sessions, setSessions] = useState<any[]>([])
     const [uploadedImageUrl, setUploadedImageUrl] = useState<string | null>(null)
@@ -75,8 +76,21 @@ function ChatInterface() {
     }, [supabase])
 
     useEffect(() => {
-        fetchSessions()
-    }, [fetchSessions])
+        const getInitialSession = async () => {
+            const { data: { user } } = await supabase.auth.getUser()
+            setUser(user)
+        }
+        getInitialSession()
+
+        const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+            setUser(session?.user ?? null)
+            if (session) {
+                fetchSessions()
+            }
+        })
+
+        return () => subscription.unsubscribe()
+    }, [supabase, fetchSessions])
 
     const loadSession = async (sid: string) => {
         try {
@@ -124,8 +138,16 @@ function ChatInterface() {
         setIsTyping(true)
 
         try {
-            const { data: { session } } = await supabase.auth.getSession()
-            if (!session?.access_token) {
+            const { data: { session }, error: sessionError } = await supabase.auth.getSession()
+            
+            // On mobile, if session is null, try to refresh it once
+            let currentToken = session?.access_token
+            if (!currentToken) {
+                const { data: { session: refreshedSession } } = await supabase.auth.refreshSession()
+                currentToken = refreshedSession?.access_token
+            }
+
+            if (!currentToken) {
                 setMessages(prev => [...prev, { id: Date.now() + 1, role: 'assistant', text: "Your session has expired. Please sign out and sign in again." }])
                 setIsTyping(false)
                 return
@@ -138,7 +160,7 @@ function ChatInterface() {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${session.access_token}`
+                    'Authorization': `Bearer ${currentToken}`
                 },
                 body: JSON.stringify({
                     message: currentInput || 'See attached image.',
