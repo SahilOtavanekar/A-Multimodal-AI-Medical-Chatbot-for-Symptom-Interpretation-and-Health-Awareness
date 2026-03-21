@@ -50,7 +50,7 @@ export default function ProfilePage() {
             }
 
             const isProd = typeof window !== 'undefined' && window.location.hostname !== 'localhost'
-            const apiPrefix = isProd ? '/api' : ''
+            const apiPrefix = '/api'
             const apiUrl = process.env.NEXT_PUBLIC_API_URL || (isProd ? '' : 'http://localhost:8000')
             
             const res = await fetch(`${apiUrl}${apiPrefix}/chat/all`, {

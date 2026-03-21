@@ -33,7 +33,7 @@ app.add_middleware(AuditLoggingMiddleware)
 # We read FRONTEND_URL from environment variables, defaulting to localhost for dev
 origins = [
     os.getenv("FRONTEND_URL", "http://localhost:3000"),
-    "https://your-production-app.vercel.app"
+    "https://*.vercel.app" # Allow all vercel preview/prod domains
 ]
 
 app.add_middleware(

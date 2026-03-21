@@ -59,7 +59,7 @@ function ChatInterface() {
             if (!session) return
 
             const isProd = typeof window !== 'undefined' && window.location.hostname !== 'localhost'
-            const apiPrefix = isProd ? '/api' : ''
+            const apiPrefix = '/api'
             const apiUrl = process.env.NEXT_PUBLIC_API_URL || (isProd ? '' : 'http://localhost:8000')
             const res = await fetch(`${apiUrl}${apiPrefix}/chat/sessions`, {
                 headers: { 'Authorization': `Bearer ${session.access_token}` }
@@ -83,7 +83,7 @@ function ChatInterface() {
             if (!session) return
 
             const isProd = typeof window !== 'undefined' && window.location.hostname !== 'localhost'
-            const apiPrefix = isProd ? '/api' : ''
+            const apiPrefix = '/api'
             const apiUrl = process.env.NEXT_PUBLIC_API_URL || (isProd ? '' : 'http://localhost:8000')
 
             const res = await fetch(`${apiUrl}${apiPrefix}/chat/history?session_id=${sid}`, {
@@ -126,7 +126,7 @@ function ChatInterface() {
         try {
             const { data: { session } } = await supabase.auth.getSession()
             const isProd = typeof window !== 'undefined' && window.location.hostname !== 'localhost'
-            const apiPrefix = isProd ? '/api' : ''
+            const apiPrefix = '/api'
             const apiUrl = process.env.NEXT_PUBLIC_API_URL || (isProd ? '' : 'http://localhost:8000')
             const res = await fetch(`${apiUrl}${apiPrefix}/chat/`, {
                 method: 'POST',
@@ -168,7 +168,7 @@ function ChatInterface() {
         try {
             const { data: { session } } = await supabase.auth.getSession()
             const isProd = typeof window !== 'undefined' && window.location.hostname !== 'localhost'
-            const apiPrefix = isProd ? '/api' : ''
+            const apiPrefix = '/api'
             const apiUrl = process.env.NEXT_PUBLIC_API_URL || (isProd ? '' : 'http://localhost:8000')
 
             const formData = new FormData()

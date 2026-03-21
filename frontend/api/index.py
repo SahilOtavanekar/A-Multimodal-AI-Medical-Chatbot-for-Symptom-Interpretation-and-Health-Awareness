@@ -2,7 +2,7 @@ import os
 import sys
 
 # Path to the 'backend' folder relative to this file (api/index.py)
-backend_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'backend'))
+backend_path = os.path.abspath(os.path.join(os.path.dirname(__file__), 'backend'))
 
 # Add the backend folder to the path so imports (main, routers, etc.) work
 if backend_path not in sys.path:
