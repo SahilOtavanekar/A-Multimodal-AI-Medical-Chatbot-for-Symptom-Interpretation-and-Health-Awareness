@@ -125,6 +125,12 @@ function ChatInterface() {
 
         try {
             const { data: { session } } = await supabase.auth.getSession()
+            if (!session?.access_token) {
+                setMessages(prev => [...prev, { id: Date.now() + 1, role: 'assistant', text: "Your session has expired. Please sign out and sign in again." }])
+                setIsTyping(false)
+                return
+            }
+
             const isProd = typeof window !== 'undefined' && window.location.hostname !== 'localhost'
             const apiPrefix = '/api'
             const apiUrl = process.env.NEXT_PUBLIC_API_URL || (isProd ? '' : 'http://localhost:8000')
@@ -132,7 +138,7 @@ function ChatInterface() {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${session?.access_token}`
+                    'Authorization': `Bearer ${session.access_token}`
                 },
                 body: JSON.stringify({
                     message: currentInput || 'See attached image.',
