@@ -147,12 +147,12 @@ function ChatInterface() {
         try {
             // First fallback on actively cached state token if dynamic fetch fails under load handling
             const { data: { session }, error: sessionError } = await supabase.auth.getSession()
-            let currentToken = session?.access_token || activeToken
+            let currentToken: string | null = session?.access_token ?? activeToken ?? null
             
             // Try explicit refresh if both dynamic and cached tokens are mysteriously absent
             if (!currentToken) {
                 const { data: { session: refreshedSession } } = await supabase.auth.refreshSession()
-                currentToken = refreshedSession?.access_token
+                currentToken = refreshedSession?.access_token || null
             }
 
             if (!currentToken) {
