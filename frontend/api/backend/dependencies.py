@@ -31,35 +31,16 @@ security = HTTPBearer()
 
 def verify_session(credentials: HTTPAuthorizationCredentials = Depends(security)):
     """
-    Middleware function to verify Supabase JWT tokens via digital signature.
-    This remains stable even if the database session lookup fails on mobile.
+    Middleware function to verify Supabase JWT tokens via the Authorization header.
+    Returns the user data if valid, raises 401 Unauthorized if invalid.
     """
     token = credentials.credentials
     try:
-        # Verify the token using the Supabase Service Role Key as the secret
-        # Supabase uses the HS256 algorithm by default
-        payload = jwt.decode(
-            token, 
-            supabase_key, 
-            algorithms=["HS256"], 
-            options={"verify_aud": False} # Required as Supabase uses 'authenticated' role as audience
-        )
-        
-        user_id = payload.get("sub")
-        if not user_id:
-            raise HTTPException(status_code=401, detail="Invalid token payload.")
-            
-        # Return an object that supports .id and .email to match existing code
-        class AuthUser:
-            def __init__(self, uid, email):
-                self.id = uid
-                self.email = email
-                
-        return AuthUser(user_id, payload.get("email"))
-        
-    except jwt.ExpiredSignatureError:
-        logger.error("Token has expired")
-        raise HTTPException(status_code=401, detail="Session expired.")
+        # Supabase provides getUser() which automatically verifies the JWT validity.
+        response = supabase.auth.get_user(token)
+        if not response or not response.user:
+            raise HTTPException(status_code=401, detail="Invalid session token.")
+        return response.user
     except Exception as e:
-        logger.error(f"Auth verification failed: {str(e)}")
-        raise HTTPException(status_code=401, detail="Invalid session token.")
+        logger.error(f"Auth derivation failed: {str(e)}")
+        raise HTTPException(status_code=401, detail="Invalid or expired session token.")
