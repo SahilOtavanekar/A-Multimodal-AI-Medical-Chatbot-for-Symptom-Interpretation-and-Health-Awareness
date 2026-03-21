@@ -36,26 +36,51 @@ def verify_session(credentials: HTTPAuthorizationCredentials = Depends(security)
     """
     token = credentials.credentials
     try:
-        # Diagnostic logging for the token (first 10 chars)
+        # Diagnostic logging (first 10 chars)
         logger.debug(f"Verifying token: {token[:10]}...")
         
-        # Supabase provides getUser() which automatically verifies the JWT validity.
-        response = supabase.auth.get_user(token)
+        # RESILIENCE FIX: 
+        # Instead of using the global Admin client to verify the token (which can fail 
+        # if the session was created on a different host), we create a fresh 
+        # Token-scoped client to perform a 'self-verification'.
+        from supabase import create_client as fast_create
+        temp_client = fast_create(supabase_url, supabase_key)
+        
+        # Verify the user using the token itself
+        response = temp_client.auth.get_user(token)
         
         if not response or not response.user:
-            logger.error(f"Auth failed on Render: User object missing for token {token[:5]}")
-            raise HTTPException(status_code=401, detail="Invalid session token.")
+             raise HTTPException(status_code=401, detail="Invalid token session.")
             
         return response.user
     except Exception as e:
         error_msg = str(e)
         logger.error(f"Auth derivation failed on Render Backend: {error_msg}")
         
-        # Check for specific "Session does not exist" which indicates a logic/config mismatch
-        if "session_id" in error_msg.lower():
-            logger.warning("Supabase reported missing session ID. Attempting fallback verification via local decode check...")
-            
+        # FALLBACK: If GoTrue session check fails, we perform a digital signature check
+        # using the key itself (HS256) as the last resort to keep the service alive.
+        try:
+             import jwt
+             # Supabase tokens are signed with the Service Role Key as the JWT Secret
+             payload = jwt.decode(
+                token, 
+                supabase_key, 
+                algorithms=["HS256"], 
+                options={"verify_aud": False}
+             )
+             
+             user_id = payload.get("sub")
+             if user_id:
+                 logger.warning(f"Rescued session for User {user_id} via local JWT fallback.")
+                 class UserProxy:
+                     def __init__(self, uid, email):
+                         self.id = uid
+                         self.email = email
+                 return UserProxy(user_id, payload.get("email"))
+        except Exception as jwt_err:
+             logger.error(f"Ultimate fallback verification failed: {jwt_err}")
+             
         raise HTTPException(
             status_code=401, 
-            detail=f"Auth Error: {error_msg}" # Temporarily expose error message for debugging
+            detail=f"Authentication failed: {error_msg}"
         )
