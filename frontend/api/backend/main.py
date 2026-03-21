@@ -31,17 +31,13 @@ app.add_middleware(AuditLoggingMiddleware)
 
 # Configure CORS policies between frontend and backend
 # We read FRONTEND_URL from environment variables, defaulting to localhost for dev
-origins = [
-    os.getenv("FRONTEND_URL", "http://localhost:3000"),
-    "https://a-multimodal-ai-medical-chatbot-for.vercel.app",
-    "https://a-multimodal-ai-medical-chatbot-for.vercel.app/"
-]
-
+# Remove strict explicit origins list since we pass tokens via headers, not secure cookies.
+# This prevents strict origin matching bugs (like mobile browsers sending unexpected trailing slashes, 
+# 'null' origins from cached pages, or http vs https mismatches).
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,
-    allow_origin_regex=r"https://.*\.vercel\.app.*",
-    allow_credentials=True,
+    allow_origins=["*"], 
+    allow_credentials=False, # MUST be false to allow origins=["*"]
     allow_methods=["*"],
     allow_headers=["*"],
 )
