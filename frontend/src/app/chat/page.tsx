@@ -36,6 +36,7 @@ function DeletionNotifier() {
 }
 
 function ChatInterface() {
+    const supabase = createClient()
     const searchParams = useSearchParams()
     const [messages, setMessages] = useState<any[]>([
         { id: 1, role: 'assistant', text: "Hello. I am a health awareness AI. How can I help you today? Please remember, I cannot provide a medical diagnosis." }
