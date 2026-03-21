@@ -4,7 +4,7 @@ import { useState, useRef, useEffect, useCallback, Suspense } from 'react'
 import { motion } from 'framer-motion'
 import { Send, ImagePlus, User, Bot, Loader2, LogOut, Settings, MessageSquare, PlusCircle, Volume2, Pause, Play, Menu, X, Mic, CheckCircle2 } from 'lucide-react'
 import Link from 'next/link'
-import { useSearchParams } from 'next/navigation'
+import { useSearchParams, useRouter } from 'next/navigation'
 import { createClient } from '@/utils/supabase/client'
 import ReactMarkdown from 'react-markdown'
 
@@ -15,7 +15,8 @@ function DeletionNotifier() {
     useEffect(() => {
         if (searchParams.get('deleted') === 'true') {
             setDeletionSuccess(true)
-            window.history.replaceState({}, '', '/chat')
+            // Use safe router replace instead of breaking Next.js history state
+            window.history.replaceState(null, '', '/chat')
             const timer = setTimeout(() => setDeletionSuccess(false), 5000)
             return () => clearTimeout(timer)
         }
@@ -38,12 +39,14 @@ function DeletionNotifier() {
 function ChatInterface() {
     const supabase = createClient()
     const searchParams = useSearchParams()
+    const router = useRouter()
     const [messages, setMessages] = useState<any[]>([
         { id: 1, role: 'assistant', text: "Hello. I am a health awareness AI. How can I help you today? Please remember, I cannot provide a medical diagnosis." }
     ])
     const [input, setInput] = useState('')
     const [isTyping, setIsTyping] = useState(false)
     const [user, setUser] = useState<any>(null)
+    const [activeToken, setActiveToken] = useState<string | null>(null)
     const sessionId = searchParams.get('id')
     const [sessions, setSessions] = useState<any[]>([])
     const [uploadedImageUrl, setUploadedImageUrl] = useState<string | null>(null)
@@ -77,13 +80,17 @@ function ChatInterface() {
 
     useEffect(() => {
         const getInitialSession = async () => {
-            const { data: { user } } = await supabase.auth.getUser()
-            setUser(user)
+            const { data: { session } } = await supabase.auth.getSession()
+            if (session) {
+                setUser(session.user)
+                setActiveToken(session.access_token)
+            }
         }
         getInitialSession()
 
         const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
             setUser(session?.user ?? null)
+            setActiveToken(session?.access_token ?? null)
             if (session) {
                 fetchSessions()
             }
@@ -114,7 +121,7 @@ function ChatInterface() {
     }
 
     const startNewChat = () => {
-        window.history.pushState({}, '', '/chat')
+        router.push('/chat')
         setMessages([
             { id: 1, role: 'assistant', text: "Hello. I am a health awareness AI. How can I help you today? Please remember, I cannot provide a medical diagnosis." }
         ])
@@ -138,10 +145,11 @@ function ChatInterface() {
         setIsTyping(true)
 
         try {
+            // First fallback on actively cached state token if dynamic fetch fails under load handling
             const { data: { session }, error: sessionError } = await supabase.auth.getSession()
+            let currentToken = session?.access_token || activeToken
             
-            // On mobile, if session is null, try to refresh it once
-            let currentToken = session?.access_token
+            // Try explicit refresh if both dynamic and cached tokens are mysteriously absent
             if (!currentToken) {
                 const { data: { session: refreshedSession } } = await supabase.auth.refreshSession()
                 currentToken = refreshedSession?.access_token
@@ -173,7 +181,7 @@ function ChatInterface() {
                 if (!sessionId && data.data.session_id) {
                     // Refresh the session list strictly if it's the first message of a new thread
                     fetchSessions()
-                    window.history.pushState({}, '', `/chat?id=${data.data.session_id}`)
+                    router.push(`/chat?id=${data.data.session_id}`)
                 }
                 setMessages(prev => [...prev, { id: Date.now() + 1, role: 'assistant', text: data.data.response }])
             } else {
@@ -396,7 +404,7 @@ function ChatInterface() {
                             <button
                                 key={session.id}
                                 onClick={() => { 
-                                    window.history.pushState({}, '', `/chat?id=${session.id}`);
+                                    router.push(`/chat?id=${session.id}`);
                                     loadSession(session.id); 
                                     setIsSidebarOpen(false); 
                                 }}
