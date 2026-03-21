@@ -34,12 +34,13 @@ app.add_middleware(AuditLoggingMiddleware)
 origins = [
     os.getenv("FRONTEND_URL", "http://localhost:3000"),
     "https://a-multimodal-ai-medical-chatbot-for.vercel.app",
-    "https://*.vercel.app"
+    "https://a-multimodal-ai-medical-chatbot-for.vercel.app/"
 ]
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
+    allow_origin_regex=r"https://.*\.vercel\.app.*",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
