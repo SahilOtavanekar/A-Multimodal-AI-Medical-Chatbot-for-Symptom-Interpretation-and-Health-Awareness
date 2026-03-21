@@ -36,13 +36,13 @@ function DeletionNotifier() {
 }
 
 function ChatInterface() {
-    const supabase = createClient()
+    const searchParams = useSearchParams()
     const [messages, setMessages] = useState<any[]>([
         { id: 1, role: 'assistant', text: "Hello. I am a health awareness AI. How can I help you today? Please remember, I cannot provide a medical diagnosis." }
     ])
     const [input, setInput] = useState('')
     const [isTyping, setIsTyping] = useState(false)
-    const [sessionId, setSessionId] = useState<string | null>(null)
+    const sessionId = searchParams.get('id')
     const [sessions, setSessions] = useState<any[]>([])
     const [uploadedImageUrl, setUploadedImageUrl] = useState<string | null>(null)
     const [isUploading, setIsUploading] = useState(false)
@@ -91,7 +91,6 @@ function ChatInterface() {
             })
             const data = await res.json()
             if (data.success) {
-                setSessionId(sid)
                 setMessages(data.data) // Assuming data.data holds the messages sorted chronologically
             }
         } catch (error) {
@@ -100,7 +99,7 @@ function ChatInterface() {
     }
 
     const startNewChat = () => {
-        setSessionId(null)
+        window.history.pushState({}, '', '/chat')
         setMessages([
             { id: 1, role: 'assistant', text: "Hello. I am a health awareness AI. How can I help you today? Please remember, I cannot provide a medical diagnosis." }
         ])
@@ -145,8 +144,8 @@ function ChatInterface() {
                 if (!sessionId && data.data.session_id) {
                     // Refresh the session list strictly if it's the first message of a new thread
                     fetchSessions()
+                    window.history.pushState({}, '', `/chat?id=${data.data.session_id}`)
                 }
-                setSessionId(data.data.session_id)
                 setMessages(prev => [...prev, { id: Date.now() + 1, role: 'assistant', text: data.data.response }])
             } else {
                 setMessages(prev => [...prev, { id: Date.now() + 1, role: 'assistant', text: "Error: " + (data.error || data.detail) }])
@@ -367,7 +366,11 @@ function ChatInterface() {
                         {sessions.map((session) => (
                             <button
                                 key={session.id}
-                                onClick={() => { loadSession(session.id); setIsSidebarOpen(false); }}
+                                onClick={() => { 
+                                    window.history.pushState({}, '', `/chat?id=${session.id}`);
+                                    loadSession(session.id); 
+                                    setIsSidebarOpen(false); 
+                                }}
                                 className={`w-full text-left flex items-center gap-2 px-3 py-2 text-sm rounded-lg font-medium transition-colors truncate ${sessionId === session.id ? 'bg-blue-50 text-blue-700' : 'text-slate-600 hover:bg-slate-50'}`}
                             >
                                 <MessageSquare className="w-4 h-4 shrink-0" />
@@ -394,6 +397,7 @@ function ChatInterface() {
             <main className="flex-1 flex flex-col min-w-0 bg-white md:rounded-l-[2.5rem] shadow-2xl relative overflow-hidden">
                 <Suspense fallback={null}>
                     <DeletionNotifier />
+                    <SessionLoader loadSession={loadSession} />
                 </Suspense>
 
                 {/* Mobile Header */}
@@ -513,6 +517,19 @@ function ChatInterface() {
             </main>
         </div>
     )
+}
+
+function SessionLoader({ loadSession }: { loadSession: (id: string) => void }) {
+    const searchParams = useSearchParams()
+    const id = searchParams.get('id')
+
+    useEffect(() => {
+        if (id) {
+            loadSession(id)
+        }
+    }, [id, loadSession])
+
+    return null
 }
 
 export default function ChatPage() {
