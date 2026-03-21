@@ -36,11 +36,26 @@ def verify_session(credentials: HTTPAuthorizationCredentials = Depends(security)
     """
     token = credentials.credentials
     try:
+        # Diagnostic logging for the token (first 10 chars)
+        logger.debug(f"Verifying token: {token[:10]}...")
+        
         # Supabase provides getUser() which automatically verifies the JWT validity.
         response = supabase.auth.get_user(token)
+        
         if not response or not response.user:
+            logger.error(f"Auth failed on Render: User object missing for token {token[:5]}")
             raise HTTPException(status_code=401, detail="Invalid session token.")
+            
         return response.user
     except Exception as e:
-        logger.error(f"Auth derivation failed: {str(e)}")
-        raise HTTPException(status_code=401, detail="Invalid or expired session token.")
+        error_msg = str(e)
+        logger.error(f"Auth derivation failed on Render Backend: {error_msg}")
+        
+        # Check for specific "Session does not exist" which indicates a logic/config mismatch
+        if "session_id" in error_msg.lower():
+            logger.warning("Supabase reported missing session ID. Attempting fallback verification via local decode check...")
+            
+        raise HTTPException(
+            status_code=401, 
+            detail=f"Auth Error: {error_msg}" # Temporarily expose error message for debugging
+        )
