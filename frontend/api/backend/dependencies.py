@@ -58,27 +58,30 @@ def verify_session(credentials: HTTPAuthorizationCredentials = Depends(security)
         logger.error(f"Auth derivation failed on Render Backend: {error_msg}")
         
         # FALLBACK: If GoTrue session check fails, we perform a digital signature check
-        # using the key itself (HS256) as the last resort to keep the service alive.
+        # using the master JWT Secret (if configured) or the Supabase key.
         try:
              import jwt
-             # Supabase tokens are signed with the Service Role Key as the JWT Secret
+             # Priority 1: Use the master JWT Secret from Render Env
+             # Priority 2: Fallback to the provided Supabase Key if Secret is missing
+             secret_to_use = settings.supabase_jwt_secret or supabase_key
+             
              payload = jwt.decode(
                 token, 
-                supabase_key, 
+                secret_to_use, 
                 algorithms=["HS256"], 
                 options={"verify_aud": False}
              )
              
              user_id = payload.get("sub")
              if user_id:
-                 logger.warning(f"Rescued session for User {user_id} via local JWT fallback.")
+                 logger.warning(f"Rescued session for User {user_id} via local JWT fallback verification.")
                  class UserProxy:
                      def __init__(self, uid, email):
                          self.id = uid
                          self.email = email
                  return UserProxy(user_id, payload.get("email"))
         except Exception as jwt_err:
-             logger.error(f"Ultimate fallback verification failed: {jwt_err}")
+             logger.error(f"Signature-based verification also failed: {jwt_err}")
              
         raise HTTPException(
             status_code=401, 
