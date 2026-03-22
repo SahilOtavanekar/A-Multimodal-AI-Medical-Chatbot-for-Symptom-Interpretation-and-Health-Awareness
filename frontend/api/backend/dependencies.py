@@ -57,31 +57,30 @@ def verify_session(credentials: HTTPAuthorizationCredentials = Depends(security)
         error_msg = str(e)
         logger.error(f"Auth derivation failed on Render Backend: {error_msg}")
         
-        # FALLBACK: If GoTrue session check fails, we perform a digital signature check
-        # using the master JWT Secret (if configured) or the Supabase key.
-        try:
-             import jwt
-             # Priority 1: Use the master JWT Secret from Render Env
-             # Priority 2: Fallback to the provided Supabase Key if Secret is missing
-             secret_to_use = settings.supabase_jwt_secret or supabase_key
-             
-             payload = jwt.decode(
-                token, 
-                secret_to_use, 
-                algorithms=["HS256"], 
-                options={"verify_aud": False}
-             )
-             
-             user_id = payload.get("sub")
-             if user_id:
-                 logger.warning(f"Rescued session for User {user_id} via local JWT fallback verification.")
-                 class UserProxy:
-                     def __init__(self, uid, email):
-                         self.id = uid
-                         self.email = email
-                 return UserProxy(user_id, payload.get("email"))
-        except Exception as jwt_err:
-             logger.error(f"Signature-based verification also failed: {jwt_err}")
+        # FALLBACK: If GoTrue session check fails because the session row is missing from the DB,
+        # but the token's signature WAS successfully verified by GoTrue (proven by the specific error message),
+        # we can safely extract the user ID directly from the token payload without re-verifying locally.
+        # This handles tokens signed with ES256/RS256 where we don't have the public key.
+        if "session_id claim in JWT does not exist" in error_msg:
+            try:
+                 import jwt
+                 # Safe to disable signature verification here ONLY because Supabase's API 
+                 # already rejected fake signatures in the previous step (which would yield a different error).
+                 payload = jwt.decode(
+                    token, 
+                    options={"verify_signature": False}
+                 )
+                 
+                 user_id = payload.get("sub")
+                 if user_id:
+                     logger.warning(f"Rescued session for User {user_id} via verified payload extraction.")
+                     class UserProxy:
+                         def __init__(self, uid, email):
+                             self.id = uid
+                             self.email = email
+                     return UserProxy(user_id, payload.get("email"))
+            except Exception as jwt_err:
+                 logger.error(f"Payload extraction fallback failed: {jwt_err}")
              
         raise HTTPException(
             status_code=401, 
