@@ -30,5 +30,5 @@ def get_emergency_override_message() -> str:
     return (
         "🚨 EMERGENCY ALERT: Your symptoms suggest a potential medical emergency. "
         "Please stop using this chatbot and seek immediate emergency medical attention. "
-        "Call your local emergency services (e.g., 911) or visit the nearest emergency room immediately."
+        "Call your local emergency services (e.g., 108) or visit the nearest emergency room immediately."
     )

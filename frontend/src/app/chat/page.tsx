@@ -28,7 +28,8 @@ function DeletionNotifier() {
         <motion.div 
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
-            className="absolute top-20 left-1/2 -translate-x-1/2 z-50 bg-green-50 border border-green-200 text-green-800 px-6 py-3 rounded-2xl shadow-lg flex items-center gap-3 font-semibold"
+            className="absolute top-20 left-1/2 -translate-x-1/2 z-50 bg-green-50 border border-green-200 text-green-800 px-6 py-3
+             rounded-2xl shadow-lg flex items-center gap-3 font-semibold"
         >
             <CheckCircle2 className="w-5 h-5 text-green-600" />
             All chat history successfully deleted!
@@ -41,7 +42,8 @@ function ChatInterface() {
     const searchParams = useSearchParams()
     const router = useRouter()
     const [messages, setMessages] = useState<any[]>([
-        { id: 1, role: 'assistant', text: "Hello. I am a health awareness AI. How can I help you today? Please remember, I cannot provide a medical diagnosis." }
+        { id: 1, role: 'assistant',
+             text: "Hello. I am a health awareness AI. How can I help you today? Please remember, I cannot provide a medical diagnosis." }
     ])
     const [input, setInput] = useState('')
     const [isTyping, setIsTyping] = useState(false)
@@ -126,7 +128,8 @@ function ChatInterface() {
     const startNewChat = () => {
         router.push('/chat')
         setMessages([
-            { id: 1, role: 'assistant', text: "Hello. I am a health awareness AI. How can I help you today? Please remember, I cannot provide a medical diagnosis." }
+            { id: 1, role: 'assistant', 
+            text: "Hello. I am a health awareness AI. How can I help you today? Please remember, I cannot provide a medical diagnosis." }
         ])
     }
 
@@ -159,7 +162,8 @@ function ChatInterface() {
             }
 
             if (!currentToken) {
-                setMessages(prev => [...prev, { id: Date.now() + 1, role: 'assistant', text: "Your session has expired. Please sign out and sign in again." }])
+                setMessages(prev => [...prev, { id: Date.now() + 1, role: 'assistant', 
+                    text: "Your session has expired. Please sign out and sign in again." }])
                 setIsTyping(false)
                 return
             }
@@ -243,9 +247,12 @@ function ChatInterface() {
             return;
         }
 
+        console.log("toggleSpeechToText invoked", { isListening, input });
+
         const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
         if (!SpeechRecognition) {
             alert("Voice input is not supported in this browser. Please use Chrome or Edge.");
+            console.warn("SpeechRecognition not available", navigator.userAgent);
             return;
         }
 
@@ -257,21 +264,54 @@ function ChatInterface() {
 
         const baseInput = input ? input.trim() + " " : "";
 
-        recognition.onstart = () => setIsListening(true);
+        recognition.onstart = () => {
+            console.log("Speech recognition started");
+            setIsListening(true);
+        };
         
         recognition.onresult = (event: any) => {
             const transcript = Array.from(event.results)
                 .map((result: any) => result[0].transcript)
                 .join('');
+            console.log("Speech recognition result", transcript);
             setInput(baseInput + transcript); 
         };
 
         recognition.onerror = (e: any) => {
-            console.error("Speech recognition error", e);
-            if (e.error !== 'no-speech') setIsListening(false);
+            const errorType = e?.error || 'unknown';
+
+            // suppress useless {} message in browser console
+            if (errorType === 'unknown') {
+                console.debug("Speech recognition transient error", e);
+            } else {
+                console.warn("Speech recognition error", errorType, e);
+            }
+
+            if (recognitionRef.current) {
+                recognitionRef.current.stop();
+                recognitionRef.current = null;
+            }
+
+            // Keep mic state clear and avoid stuck UI
+            setIsListening(false);
+            window.speechSynthesis?.cancel?.();
+
+            // Re-open the stream for transient errors like no-speech to improve UX
+            if (errorType === 'no-speech' || errorType === 'aborted') {
+                setTimeout(() => {
+                    if (!isListening) {
+                        toggleSpeechToText();
+                    }
+                }, 300);
+            }
         };
 
-        recognition.onend = () => setIsListening(false);
+        recognition.onend = () => {
+            if (recognitionRef.current) {
+                recognitionRef.current = null;
+            }
+            setIsListening(false);
+        };
         
         recognition.start();
     };
@@ -301,75 +341,99 @@ function ChatInterface() {
             return
         }
 
-        // Handle pause/resume for the same message
         if (speakingId === msgId) {
-            if (isPaused) {
-                window.speechSynthesis.resume()
-                setIsPaused(false)
+            // Toggle pause/resume for current message
+            if (window.speechSynthesis.speaking || window.speechSynthesis.paused) {
+                if (isPaused) {
+                    window.speechSynthesis.resume()
+                    setIsPaused(false)
+                } else {
+                    window.speechSynthesis.pause()
+                    setIsPaused(true)
+                }
             } else {
-                window.speechSynthesis.pause()
-                setIsPaused(true)
+                // speech ended unexpectedly, reset UI
+                setSpeakingId(null)
+                setIsPaused(false)
             }
             return
         }
 
-        // Cancel previous speech completely
+        // New message, cancel any existing speech
         window.speechSynthesis.cancel()
         setSpeakingId(msgId)
         setIsPaused(false)
 
-        setTimeout(() => {
-            const chunks = chunkText(text)
-            const isHindi = /[\u0900-\u097F]/.test(text)
-            let currentIndex = 0;
+        const chunks = chunkText(text)
+        if (chunks.length === 0) {
+            setSpeakingId(null)
+            return
+        }
 
-            const speakNextChunk = () => {
-                if (currentIndex >= chunks.length) {
-                    setSpeakingId(null)
-                        ; (window as any)._activeUtterance = null
-                    return;
-                }
+        const isHindi = /[\u0900-\u097F]/.test(text)
+        let currentIndex = 0
+        let isStopped = false
 
-                const utterance = new SpeechSynthesisUtterance(chunks[currentIndex])
-                    // Global reference guard
-                    ; (window as any)._activeUtterance = utterance
+        const stopSpeech = () => {
+            isStopped = true
+            window.speechSynthesis.cancel()
+            setSpeakingId(null)
+            setIsPaused(false)
+            ;(window as any)._activeUtterance = null
+        }
 
-                utterance.lang = isHindi ? 'hi-IN' : 'en-US'
-
-                const voices = window.speechSynthesis.getVoices()
-                if (voices.length > 0) {
-                    const targetLang = isHindi ? 'hi' : 'en'
-                    // Find a specific named voice or fallback by prefix
-                    const targetVoice = voices.find(v => v.lang.startsWith(targetLang) || v.lang.startsWith(targetLang.toUpperCase()))
-                    if (targetVoice) utterance.voice = targetVoice
-                }
-
-                utterance.onend = () => {
-                    currentIndex++;
-                    speakNextChunk(); // Chain the next chunk recursively
-                }
-
-                utterance.onerror = (e) => {
-                    console.error("SpeechSynthesis error on chunk:", e)
-                    // If error is silent {}, it was likely GC or text length limit. Skip to next chunk.
-                    currentIndex++;
-                    if (e.error !== 'interrupted' && e.error !== 'canceled') {
-                        speakNextChunk();
-                    } else {
-                        // User genuinely canceled/shifted
-                        setSpeakingId(null)
-                        setIsPaused(false)
-                            ; (window as any)._activeUtterance = null
-                    }
-                }
-
-                window.speechSynthesis.speak(utterance)
+        const speakNextChunk = () => {
+            if (isStopped || currentIndex >= chunks.length) {
+                stopSpeech()
+                return
             }
 
-            // Fire the first chunk
-            speakNextChunk()
+            const utterance = new SpeechSynthesisUtterance(chunks[currentIndex])
+            ;(window as any)._activeUtterance = utterance
 
-        }, 100) // Slightly longer 100ms yield to clear out the Audio Context
+            utterance.lang = isHindi ? 'hi-IN' : 'en-US'
+
+            const voices = window.speechSynthesis.getVoices()
+            if (voices.length > 0) {
+                const targetLang = isHindi ? 'hi' : 'en'
+                const targetVoice = voices.find(v => v.lang.startsWith(targetLang) || v.lang.startsWith(targetLang.toUpperCase()))
+                if (targetVoice) utterance.voice = targetVoice
+            }
+
+            utterance.onstart = () => {
+                setSpeakingId(msgId)
+                setIsPaused(false)
+            }
+
+            utterance.onend = () => {
+                currentIndex++
+                speakNextChunk()
+            }
+
+            utterance.onerror = (e: any) => {
+                console.error("SpeechSynthesis error on chunk:", e)
+
+                const errorType = e?.error || 'unknown'
+                if (errorType === 'interrupted' || errorType === 'canceled') {
+                    stopSpeech()
+                    return
+                }
+
+                currentIndex++
+                if (currentIndex >= chunks.length) {
+                    stopSpeech()
+                } else {
+                    // Continue after a short delay to avoid race conditions in browser engines
+                    setTimeout(speakNextChunk, 80)
+                }
+            }
+
+            window.speechSynthesis.speak(utterance)
+        }
+
+        setTimeout(() => {
+            speakNextChunk()
+        }, 100)
     }
 
     return (
@@ -383,13 +447,15 @@ function ChatInterface() {
             )}
 
             {/* Sidebar */}
-            <aside className={`absolute sm:static inset-y-0 left-0 z-50 flex flex-col w-64 bg-white border-r border-slate-200 p-4 shrink-0 transition-transform duration-300 ease-in-out ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full sm:translate-x-0'}`}>
+            <aside className={`absolute sm:static inset-y-0 left-0 z-50 flex 
+                flex-col w-64 bg-white border-r border-slate-200 p-4 shrink-0 transition-transform duration-300 ease-in-out ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full sm:translate-x-0'}`}>
                 <div className="flex items-center justify-between mb-8 px-2">
                     <div className="flex items-center gap-2">
                         <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center text-white font-bold">M</div>
                         <span className="font-semibold text-slate-800">Health AI</span>
                     </div>
-                    <button onClick={() => setIsSidebarOpen(false)} className="sm:hidden p-1 text-slate-400 hover:text-slate-600 transition-colors">
+                    <button onClick={() => setIsSidebarOpen(false)} className="sm:hidden p-1
+                     text-slate-400 hover:text-slate-600 transition-colors">
                         <X className="w-5 h-5" />
                     </button>
                 </div>
@@ -413,7 +479,9 @@ function ChatInterface() {
                                     loadSession(session.id); 
                                     setIsSidebarOpen(false); 
                                 }}
-                                className={`w-full text-left flex items-center gap-2 px-3 py-2 text-sm rounded-lg font-medium transition-colors truncate ${sessionId === session.id ? 'bg-blue-50 text-blue-700' : 'text-slate-600 hover:bg-slate-50'}`}
+                                className={`w-full text-left flex items-center gap-2 px-3 py-2 
+                                    text-sm rounded-lg font-medium transition-colors truncate ${sessionId === session.id ? 
+                                    'bg-blue-50 text-blue-700' : 'text-slate-600 hover:bg-slate-50'}`}
                             >
                                 <MessageSquare className="w-4 h-4 shrink-0" />
                                 <span className="truncate">{session.title || 'Untitled Session'}</span>
@@ -423,12 +491,14 @@ function ChatInterface() {
                 </div>
 
                 <div className="mt-auto border-t border-slate-100 pt-4 space-y-1">
-                    <Link href="/profile" className="flex items-center gap-3 px-3 py-2 text-sm text-slate-600 hover:bg-slate-50 hover:text-slate-900 rounded-lg transition-colors">
+                    <Link href="/profile" className="flex items-center 
+                    gap-3 px-3 py-2 text-sm text-slate-600 hover:bg-slate-50 hover:text-slate-900 rounded-lg transition-colors">
                         <Settings className="w-4 h-4" /> Profile & Data
                     </Link>
                     <a 
                         href="/auth/signout"
-                        className="w-full flex items-center gap-3 px-3 py-2 text-sm text-red-600 hover:bg-red-50 hover:text-red-700 rounded-lg transition-colors"
+                        className="w-full flex items-center gap-3 px-3 py-2 text-sm text-red-600 hover:bg-red-50 
+                        hover:text-red-700 rounded-lg transition-colors"
                     >
                         <LogOut className="w-4 h-4" /> Sign Out
                     </a>
@@ -443,12 +513,15 @@ function ChatInterface() {
                 </Suspense>
 
                 {/* Mobile Header */}
-                <header className="sm:hidden bg-white border-b border-slate-200 p-4 flex items-center justify-between shrink-0 sticky top-0 z-10">
+                <header className="sm:hidden bg-white border-b border-slate-200 p-4 flex items-center justify-between 
+                shrink-0 sticky top-0 z-10">
                     <div className="flex items-center gap-2">
-                        <div className="w-7 h-7 bg-blue-600 rounded-lg flex items-center justify-center text-white font-bold text-sm">M</div>
+                        <div className="w-7 h-7 bg-blue-600 rounded-lg flex items-center justify-center text-white 
+                        font-bold text-sm">M</div>
                         <span className="font-semibold text-slate-800">Health AI</span>
                     </div>
-                    <button onClick={() => setIsSidebarOpen(true)} className="p-2 -mr-2 text-slate-600 hover:bg-slate-100 rounded-lg transition-colors">
+                    <button onClick={() => setIsSidebarOpen(true)} className="p-2 -mr-2 text-slate-600 hover:bg-slate-100 rounded-lg
+                     transition-colors">
                         <Menu className="w-5 h-5" />
                     </button>
                 </header>
@@ -478,8 +551,10 @@ function ChatInterface() {
                                         <div className="mt-3 pt-2 border-t border-slate-100 flex justify-end">
                                             <button
                                                 onClick={() => handleSpeak(msg.id, msg.text || msg.content)}
-                                                className={`flex items-center gap-1.5 text-xs font-medium transition-colors ${speakingId === msg.id ? 'text-blue-600' : 'text-slate-400 hover:text-blue-600'}`}
-                                                title={speakingId === msg.id ? (isPaused ? "Resume reading" : "Pause reading") : "Read response aloud"}
+                                                className={`flex items-center gap-1.5 text-xs font-medium transition-colors 
+                                                    ${speakingId === msg.id ? 'text-blue-600' : 'text-slate-400 hover:text-blue-600'}`}
+                                                title={speakingId === msg.id ? (isPaused ? "Resume reading" : "Pause reading") : 
+                                                    "Read response aloud"}
                                             >
                                                 {speakingId === msg.id ? (
                                                     isPaused ? <Play className="w-4 h-4" /> : <Pause className="w-4 h-4" />
@@ -515,15 +590,22 @@ function ChatInterface() {
                         {/* Image Preview Area */}
                         {uploadedImageUrl && (
                             <div className="relative inline-block self-start ml-14 mb-2">
-                                <img src={uploadedImageUrl} alt="Attachment preview" className="h-20 rounded-lg border border-slate-200 shadow-sm" />
-                                <button type="button" onClick={() => setUploadedImageUrl(null)} className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 shadow-md hover:bg-red-600 transition-colors">
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18" /><path d="m6 6 12 12" /></svg>
+                                <img src={uploadedImageUrl} alt="Attachment preview" className="h-20 rounded-lg border border-slate-200
+                                 shadow-sm" />
+                                <button type="button" onClick={() => setUploadedImageUrl(null)} className="absolute -top-2 -right-2
+                                 bg-red-500 text-white rounded-full p-1 shadow-md hover:bg-red-600 transition-colors">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" 
+                                    stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path 
+                                    d="M18 6 6 18" /><path d="m6 6 12 12" /></svg>
                                 </button>
                             </div>
                         )}
                         <div className="relative flex items-center">
-                            <input type="file" ref={fileInputRef} onChange={handleFileUpload} className="hidden" accept="image/png, image/jpeg, image/jpg, image/webp" />
-                            <button type="button" onClick={() => fileInputRef.current?.click()} disabled={isUploading} className={`absolute left-3 p-2 rounded-full transition-colors shrink-0 disabled:opacity-50 ${uploadedImageUrl ? 'text-blue-600 bg-blue-100' : 'text-slate-400 hover:text-blue-600 hover:bg-blue-50'}`}>
+                            <input type="file" ref={fileInputRef} onChange={handleFileUpload} className="hidden" 
+                            accept="image/png, image/jpeg, image/jpg, image/webp" />
+                            <button type="button" onClick={() => fileInputRef.current?.click()} disabled={isUploading} 
+                            className={`absolute left-3 p-2 rounded-full transition-colors shrink-0 disabled:opacity-50 ${uploadedImageUrl 
+                            ? 'text-blue-600 bg-blue-100' : 'text-slate-400 hover:text-blue-600 hover:bg-blue-50'}`}>
                                 {isUploading ? <Loader2 className="w-5 h-5 animate-spin" /> : <ImagePlus className="w-5 h-5" />}
                             </button>
                             
@@ -541,20 +623,25 @@ function ChatInterface() {
                                 type="text"
                                 value={input}
                                 onChange={(e) => setInput(e.target.value)}
-                                placeholder={isUploading ? "Uploading image..." : (isListening ? "Listening... (Speak now)" : "Describe your symptoms or ask a health question...")}
+                                placeholder={isUploading ? "Uploading image..." : (isListening ? "Listening... (Speak now)"
+                                     : "Describe your symptoms or ask a health question...")}
                                 disabled={isUploading}
-                                className="w-full pl-24 pr-14 py-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 focus:bg-white text-slate-900 transition-all placeholder:text-slate-400 disabled:opacity-70"
+                                className="w-full pl-24 pr-14 py-4 bg-slate-50 border border-slate-200 rounded-2xl
+                                 outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 focus:bg-white
+                                  text-slate-900 transition-all placeholder:text-slate-400 disabled:opacity-70"
                             />
                             <button
                                 type="submit"
                                 disabled={(!input.trim() && !uploadedImageUrl) || isUploading}
-                                className="absolute right-3 p-2 text-blue-600 hover:bg-blue-50 rounded-full transition-colors shrink-0 disabled:opacity-40 disabled:hover:bg-transparent"
+                                className="absolute right-3 p-2 text-blue-600 hover:bg-blue-50
+                                 rounded-full transition-colors shrink-0 disabled:opacity-40 disabled:hover:bg-transparent"
                             >
                                 <Send className="w-5 h-5" />
                             </button>
                         </div>
                     </form>
-                    <p className="text-center text-xs text-slate-400 mt-3 font-medium">Use of this system implies agreement to the Medical Disclaimer.</p>
+                    <p className="text-center text-xs text-slate-400 mt-3 font-medium">
+                        Use of this system implies agreement to the Medical Disclaimer.</p>
                 </div>
             </main>
         </div>
