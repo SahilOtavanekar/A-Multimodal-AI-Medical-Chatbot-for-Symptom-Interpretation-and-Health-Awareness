@@ -65,7 +65,7 @@ function ChatInterface() {
             const { data: { session } } = await supabase.auth.getSession()
             if (!session) return
 
-            const isProd = typeof window !== 'undefined' && window.location.hostname !== 'localhost'
+            const isProd = typeof window !== 'undefined' && !['localhost', '127.0.0.1'].includes(window.location.hostname)
             const apiPrefix = '/api'
             const renderUrl = 'https://a-multimodal-ai-medical-chatbot-for.onrender.com'
             const apiUrl = process.env.NEXT_PUBLIC_API_URL || (isProd ? renderUrl : 'http://localhost:8000')
@@ -108,7 +108,7 @@ function ChatInterface() {
             const { data: { session } } = await supabase.auth.getSession()
             if (!session) return
 
-            const isProd = typeof window !== 'undefined' && window.location.hostname !== 'localhost'
+            const isProd = typeof window !== 'undefined' && !['localhost', '127.0.0.1'].includes(window.location.hostname)
             const apiPrefix = '/api'
             const renderUrl = 'https://a-multimodal-ai-medical-chatbot-for.onrender.com'
             const apiUrl = process.env.NEXT_PUBLIC_API_URL || (isProd ? renderUrl : 'http://localhost:8000')
@@ -168,7 +168,7 @@ function ChatInterface() {
                 return
             }
 
-            const isProd = typeof window !== 'undefined' && window.location.hostname !== 'localhost'
+            const isProd = typeof window !== 'undefined' && !['localhost', '127.0.0.1'].includes(window.location.hostname)
             const apiPrefix = '/api'
             const renderUrl = 'https://a-multimodal-ai-medical-chatbot-for.onrender.com'
             const apiUrl = process.env.NEXT_PUBLIC_API_URL || (isProd ? renderUrl : 'http://localhost:8000')
@@ -212,7 +212,7 @@ function ChatInterface() {
         setIsUploading(true)
         try {
             const { data: { session } } = await supabase.auth.getSession()
-            const isProd = typeof window !== 'undefined' && window.location.hostname !== 'localhost'
+            const isProd = typeof window !== 'undefined' && !['localhost', '127.0.0.1'].includes(window.location.hostname)
             const apiPrefix = '/api'
             const apiUrl = process.env.NEXT_PUBLIC_API_URL || (isProd ? '' : 'http://localhost:8000')
 

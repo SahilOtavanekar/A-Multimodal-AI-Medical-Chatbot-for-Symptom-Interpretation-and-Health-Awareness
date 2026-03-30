@@ -4,7 +4,7 @@ class Settings(BaseSettings):
     supabase_url: str = ""
     supabase_key: str = ""
     supabase_jwt_secret: str = ""
-    gemini_api_key: str = ""
+    openai_api_key: str = ""
     mcp_service_endpoint: str = ""
     frontend_url: str = "http://localhost:3000"
     

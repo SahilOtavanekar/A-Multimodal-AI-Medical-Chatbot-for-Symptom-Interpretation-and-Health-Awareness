@@ -49,7 +49,7 @@ export default function ProfilePage() {
                 return
             }
 
-            const isProd = typeof window !== 'undefined' && window.location.hostname !== 'localhost'
+            const isProd = typeof window !== 'undefined' && !['localhost', '127.0.0.1'].includes(window.location.hostname)
             const apiPrefix = '/api'
             const renderUrl = 'https://a-multimodal-ai-medical-chatbot-for.onrender.com'
             const apiUrl = process.env.NEXT_PUBLIC_API_URL || (isProd ? renderUrl : 'http://localhost:8000')
