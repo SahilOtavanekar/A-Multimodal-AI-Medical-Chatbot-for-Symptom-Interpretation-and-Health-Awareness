@@ -1,6 +1,6 @@
 # Health AI: Multimodal Medical Awareness Assistant
 
-Health AI is a sophisticated AI-powered health awareness and symptom interpretation platform. It combines a state-of-the-art **Multimodal AI engine** (Gemini 2.5 Flash) with robust medical guardrails to provide users with immediate, context-aware information about their health concerns through text, images, and voice.
+Health AI is a sophisticated AI-powered health awareness and symptom interpretation platform. It combines a state-of-the-art **Multimodal AI engine** (OpenAI gpt-4o-mini) with robust medical guardrails to provide users with immediate, context-aware information about their health concerns through text, images, and voice.
 
 ---
 
@@ -33,7 +33,7 @@ Health AI is a sophisticated AI-powered health awareness and symptom interpretat
 
 ### Backend
 - **Engine:** [FastAPI](https://fastapi.tiangolo.com/) (Python)
-- **AI Model:** [Google Gemini 2.5 Flash](https://ai.google.dev/)
+- **AI Model:** [OpenAI gpt-4o-mini](https://platform.openai.com/)
 - **Security:** [SlowAPI](https://pypi.org/project/slowapi/) (Rate limiting), Audit Middleware
 - **Storage:** Supabase Storage (Secure medical image handling)
 
@@ -45,7 +45,7 @@ Health AI is a sophisticated AI-powered health awareness and symptom interpretat
 - Python 3.9+
 - Node.js 18+
 - [Supabase Project](https://supabase.com/)
-- [Gemini API Key](https://aistudio.google.com/)
+- [OpenAI API Key](https://platform.openai.com/api-keys)
 
 ### 2. Environment Configuration
 Create a `.env` file in the root and configure both frontend and backend:
@@ -54,7 +54,7 @@ Create a `.env` file in the root and configure both frontend and backend:
 ```env
 SUPABASE_URL=your_supabase_url
 SUPABASE_KEY=your_service_role_key
-GEMINI_API_KEY=your_gemini_key
+OPENAI_API_KEY=your_openai_key
 ```
 
 **Frontend (`frontend/.env.local`):**
@@ -91,5 +91,3 @@ npm run dev
 3. **EMERGENCIES:** If you are experiencing a medical emergency, call your local emergency services (e.g., 911) or go to the nearest emergency room immediately.
 
 ---
-
-
